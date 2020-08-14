@@ -33,6 +33,7 @@ _C.MODEL.CLS_AGNOSTIC_BBOX_REG = False
 # the path in paths_catalog. Else, it will use it as the specified absolute
 # path
 _C.MODEL.WEIGHT = ""
+_C.MODEL.EXPORT_ON = False
 
 
 # -----------------------------------------------------------------------------

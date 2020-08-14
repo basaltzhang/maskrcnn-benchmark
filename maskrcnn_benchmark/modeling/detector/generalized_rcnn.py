@@ -5,6 +5,7 @@ Implements the Generalized R-CNN framework
 
 import torch
 from torch import nn
+import torchvision
 
 from maskrcnn_benchmark.structures.image_list import to_image_list
 
@@ -29,6 +30,8 @@ class GeneralizedRCNN(nn.Module):
         self.backbone = build_backbone(cfg)
         self.rpn = build_rpn(cfg, self.backbone.out_channels)
         self.roi_heads = build_roi_heads(cfg, self.backbone.out_channels)
+        self.cfg = cfg
+        self.detections_per_img = cfg.MODEL.ROI_HEADS.DETECTIONS_PER_IMG
 
     def forward(self, images, targets=None):
         """
@@ -61,5 +64,16 @@ class GeneralizedRCNN(nn.Module):
             losses.update(detector_losses)
             losses.update(proposal_losses)
             return losses
+
+        if self.cfg.MODEL.EXPORT_ON:
+            boxes = torch.stack([x.bbox for x in result], 0)
+            scores = torch.stack([x.get_field("scores").unsqueeze(1) for x in result], 0)
+            b = torch.cat((boxes, scores), 2)
+            if not torchvision._is_tracing():
+                b_size = self.detections_per_img - int(b.size(1))
+                fill_zeros = torch.zeros((1, b_size, 5), dtype=torch.float, device=boxes.device)
+                result = torch.cat((b, fill_zeros), 1)
+            else:
+                return b
 
         return result

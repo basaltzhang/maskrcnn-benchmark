@@ -2,8 +2,8 @@ MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
   WEIGHT: "catalog://ImageNetPretrained/MSRA/R-50"
   RPN:
-    PRE_NMS_TOP_N_TEST: 6000
-    POST_NMS_TOP_N_TEST: 1000
+    PRE_NMS_TOP_N_TEST: 1000
+    POST_NMS_TOP_N_TEST: 100
 DATASETS:
   TRAIN: ("coco_2014_train", "coco_2014_valminusminival")
   TEST: ("coco_2014_minival",)

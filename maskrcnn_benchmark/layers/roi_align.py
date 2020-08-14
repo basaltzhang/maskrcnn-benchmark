@@ -4,6 +4,7 @@ from torch import nn
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 from torch.nn.modules.utils import _pair
+from torch.onnx.symbolic_helper import parse_args
 
 from maskrcnn_benchmark import _C
 
@@ -43,6 +44,14 @@ class _ROIAlign(Function):
             sampling_ratio,
         )
         return grad_input, None, None, None, None
+
+    @staticmethod
+    @parse_args('v', 'v', 'is', 'i', 'f')
+    def symbolic(g, input, roi, output_size, spatial_scale, sampling_ratio):
+        output_size = g.op('Constant', value_t=torch.tensor([output_size], dtype=torch.int))
+        spatial_scale = g.op('Constant', value_t=torch.tensor([spatial_scale], dtype=torch.float))
+        sampling_ratio = g.op('Constant', value_t=torch.tensor([sampling_ratio], dtype=torch.float))
+        return g.op("MaskRcnnROIAlign", input, roi, output_size, spatial_scale, sampling_ratio)
 
 
 roi_align = _ROIAlign.apply

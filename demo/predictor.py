@@ -1,8 +1,10 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import cv2
+import time
 import torch
 from torchvision import transforms as T
 from torchvision.transforms import functional as F
+from PIL import Image
 from maskrcnn_benchmark.modeling.detector import build_detection_model
 from maskrcnn_benchmark.utils.checkpoint import DetectronCheckpointer
 from maskrcnn_benchmark.structures.image_list import to_image_list
@@ -17,6 +19,8 @@ class Resize(object):
 
     # modified from torchvision to add support for max size
     def get_size(self, image_size):
+        if self.min_size == self.max_size:
+            return (self.max_size, self.max_size)
         w, h = image_size
         size = self.min_size
         max_size = self.max_size
@@ -42,6 +46,7 @@ class Resize(object):
         size = self.get_size(image.size)
         image = F.resize(image, size)
         return image
+
 class COCODemo(object):
     # COCO categories for pretty print
     CATEGORIES = [

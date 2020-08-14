@@ -82,14 +82,20 @@ class BoxCoder(object):
         pred_w = torch.exp(dw) * widths[:, None]
         pred_h = torch.exp(dh) * heights[:, None]
 
-        pred_boxes = torch.zeros_like(rel_codes)
-        # x1
-        pred_boxes[:, 0::4] = pred_ctr_x - 0.5 * pred_w
-        # y1
-        pred_boxes[:, 1::4] = pred_ctr_y - 0.5 * pred_h
-        # x2 (note: "- 1" is correct; don't be fooled by the asymmetry)
-        pred_boxes[:, 2::4] = pred_ctr_x + 0.5 * pred_w - 1
-        # y2 (note: "- 1" is correct; don't be fooled by the asymmetry)
-        pred_boxes[:, 3::4] = pred_ctr_y + 0.5 * pred_h - 1
+        # pred_boxes = torch.zeros_like(rel_codes)
+        # # x1
+        # pred_boxes[:, 0::4] = pred_ctr_x - 0.5 * pred_w
+        # # y1
+        # pred_boxes[:, 1::4] = pred_ctr_y - 0.5 * pred_h
+        # # x2 (note: "- 1" is correct; don't be fooled by the asymmetry)
+        # pred_boxes[:, 2::4] = pred_ctr_x + 0.5 * pred_w - 1
+        # # y2 (note: "- 1" is correct; don't be fooled by the asymmetry)
+        # pred_boxes[:, 3::4] = pred_ctr_y + 0.5 * pred_h - 1
 
+        const_0_5 = torch.tensor(0.5, dtype=pred_ctr_x.dtype)
+        pred_boxes1 = pred_ctr_x - const_0_5 * pred_w
+        pred_boxes2 = pred_ctr_y - const_0_5 * pred_h
+        pred_boxes3 = pred_ctr_x + const_0_5 * pred_w
+        pred_boxes4 = pred_ctr_y + const_0_5 * pred_h
+        pred_boxes = torch.stack((pred_boxes1, pred_boxes2, pred_boxes3, pred_boxes4), dim=2).flatten(1)
         return pred_boxes

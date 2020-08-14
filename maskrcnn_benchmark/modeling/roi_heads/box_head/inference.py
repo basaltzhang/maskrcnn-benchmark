@@ -2,11 +2,13 @@
 import torch
 import torch.nn.functional as F
 from torch import nn
+import torchvision
 
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.boxlist_ops import boxlist_nms
 from maskrcnn_benchmark.structures.boxlist_ops import cat_boxlist
 from maskrcnn_benchmark.modeling.box_coder import BoxCoder
+from maskrcnn_benchmark.layers import NonMaxSuppression
 
 
 class PostProcessor(nn.Module):
@@ -118,6 +120,22 @@ class PostProcessor(nn.Module):
         result = []
         # Apply threshold on detection probabilities and apply NMS
         # Skip j = 0, because it's the background class
+
+        if torchvision._is_tracing():
+            scores = torch.split(scores, 1, 1)
+            for j in range(1, num_classes):
+                boxes_j = boxes[:, j * 4 : (j + 1) * 4]
+                scores_j = scores[j].flatten()
+                idx = NonMaxSuppression.apply(boxes_j, scores_j, self.nms, self.score_thresh, self.detections_per_img)
+                boxlist_for_class = BoxList(boxes_j[idx, :], boxlist.size, mode="xyxy")
+                boxlist_for_class.add_field("scores", scores_j[idx])
+                result.append(boxlist_for_class)
+            result = cat_boxlist(result)
+            objectness = result.get_field("scores")
+            post_nms_top_n = min(self.detections_per_img, len(objectness))
+            _, inds_sorted = torch.topk(objectness, post_nms_top_n, dim=0, sorted=True)
+            return result[inds_sorted]
+
         inds_all = scores > self.score_thresh
         for j in range(1, num_classes):
             inds = inds_all[:, j].nonzero().squeeze(1)

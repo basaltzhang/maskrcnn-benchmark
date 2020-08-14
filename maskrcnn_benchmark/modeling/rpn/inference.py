@@ -1,11 +1,13 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 import torch
+import torchvision
 
 from maskrcnn_benchmark.modeling.box_coder import BoxCoder
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.boxlist_ops import cat_boxlist
 from maskrcnn_benchmark.structures.boxlist_ops import boxlist_nms
 from maskrcnn_benchmark.structures.boxlist_ops import remove_small_boxes
+from maskrcnn_benchmark.layers import NonMaxSuppression
 
 from ..utils import cat
 from .utils import permute_and_flatten
@@ -109,16 +111,28 @@ class RPNPostProcessor(torch.nn.Module):
 
         result = []
         for proposal, score, im_shape in zip(proposals, objectness, image_shapes):
-            boxlist = BoxList(proposal, im_shape, mode="xyxy")
-            boxlist.add_field("objectness", score)
-            boxlist = boxlist.clip_to_image(remove_empty=False)
-            boxlist = remove_small_boxes(boxlist, self.min_size)
-            boxlist = boxlist_nms(
-                boxlist,
-                self.nms_thresh,
-                max_proposals=self.post_nms_top_n,
-                score_field="objectness",
-            )
+            if torchvision._is_tracing():
+                proposal = torch.stack((
+                    proposal[:, 0].clamp(min=0, max=im_shape[0] - 1),
+                    proposal[:, 1].clamp(min=0, max=im_shape[1] - 1),
+                    proposal[:, 2].clamp(min=0, max=im_shape[0] - 1),
+                    proposal[:, 3].clamp(min=0, max=im_shape[1] - 1),
+                ), axis=1)
+                boxlist = BoxList(proposal, im_shape, mode="xyxy")
+                boxlist.add_field("objectness", score)
+                keep = NonMaxSuppression.apply(boxlist.bbox, boxlist.get_field("objectness"), self.nms_thresh, 0, self.post_nms_top_n)
+                boxlist = boxlist[keep]
+            else:
+                boxlist = BoxList(proposal, im_shape, mode="xyxy")
+                boxlist.add_field("objectness", score)
+                boxlist = boxlist.clip_to_image(remove_empty=False)
+                boxlist = remove_small_boxes(boxlist, self.min_size)
+                boxlist = boxlist_nms(
+                    boxlist,
+                    self.nms_thresh,
+                    max_proposals=self.post_nms_top_n,
+                    score_field="objectness",
+                )
             result.append(boxlist)
         return result
 
